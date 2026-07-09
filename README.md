@@ -18,6 +18,13 @@ remotely — unchanged gists are left untouched.
 
 ## Install
 
+Download a prebuilt binary for your platform from the
+[latest release](https://github.com/toby/grass/releases/latest) (Linux, macOS
+and Windows; Linux builds are static musl binaries), then extract it and put
+`grass` on your `PATH`.
+
+Or build from source:
+
 ```sh
 cargo build --release
 # binary at ./target/release/grass
@@ -104,6 +111,20 @@ cargo fmt
 cargo clippy --all-targets -- -D warnings
 cargo test
 ```
+
+## Releasing
+
+Releases are built by [GoReleaser](https://goreleaser.com) via the
+`.github/workflows/release.yml` workflow. To cut a release, push a semver tag:
+
+```sh
+git tag -a v0.1.0 -m "v0.1.0"
+git push origin v0.1.0
+```
+
+The workflow cross-compiles binaries (with `cargo zigbuild`) for Linux, macOS
+and Windows, then publishes archives, checksums and a changelog to a GitHub
+Release. Validate config changes locally with `goreleaser check`.
 
 ## License
 

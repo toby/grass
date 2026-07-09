@@ -1,5 +1,8 @@
 # Rust build artifacts
 /target
 
+# GoReleaser output
+/dist
+
 # Downloaded gists (default output directory)
 /gists
