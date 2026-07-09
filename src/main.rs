@@ -66,11 +66,15 @@ impl BarReporter {
         } else {
             let b = ProgressBar::new(0);
             b.set_style(
-                ProgressStyle::with_template("{spinner:.green} [{bar:30}] {pos}/{len} gists")
-                    .unwrap()
-                    .progress_chars("=> "),
+                ProgressStyle::with_template(
+                    "{spinner:.green.bold} {prefix} │{bar:26.green/dim}│ {percent:>3}% ({pos}/{len}) {msg:.dim}",
+                )
+                .unwrap()
+                .progress_chars("█▉▊▋▌▍▎▏─")
+                .tick_chars("⣾⣽⣻⢿⡿⣟⣯⣷ "),
             );
-            b.enable_steady_tick(Duration::from_millis(120));
+            b.set_prefix("🌱 grass");
+            b.enable_steady_tick(Duration::from_millis(90));
             b
         };
         Self {
@@ -86,15 +90,22 @@ impl Reporter for BarReporter {
     }
 
     fn gist_done(&self, action: Action, gist: &Gist) {
+        let label = gist_label(gist);
         if self.verbose {
             let verb = match action {
                 Action::Create => "new",
                 Action::Update => "updated",
                 Action::Skip => "skip",
             };
-            self.bar
-                .println(format!("  {verb:>7}  {}", gist_label(gist)));
+            self.bar.println(format!("  {verb:>7}  {label}"));
         }
+        let icon = match action {
+            Action::Create => "✚",
+            Action::Update => "↻",
+            Action::Skip => "·",
+        };
+        let short: String = label.chars().take(28).collect();
+        self.bar.set_message(format!("{icon} {short}"));
         self.bar.inc(1);
     }
 

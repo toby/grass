@@ -105,21 +105,28 @@ where
         }
     }
 
-    // Download new/updated gists with bounded concurrency.
-    let results = stream::iter(to_process.into_iter().map(|gist| {
-        let prior = state.gists.get(&gist.id).cloned();
-        async move {
-            let action = classify(gist, prior.as_ref(), opts.force);
-            let outcome =
-                process_gist(source, &opts.output, gist, prior.as_ref(), opts.dry_run).await;
-            (gist, action, outcome)
-        }
-    }))
-    .buffer_unordered(opts.concurrency.max(1))
-    .collect::<Vec<_>>()
-    .await;
+    // Snapshot each gist's prior record up front so the download futures own
+    // their inputs and don't borrow `state` (we mutate `state` below as
+    // results stream in).
+    let jobs: Vec<(&Gist, Option<GistRecord>)> = to_process
+        .into_iter()
+        .map(|gist| {
+            let prior = state.gists.get(&gist.id).cloned();
+            (gist, prior)
+        })
+        .collect();
 
-    for (gist, action, outcome) in results {
+    // Download new/updated gists with bounded concurrency, reporting progress
+    // as each one finishes rather than after the whole batch completes — so the
+    // bar actually advances while downloads are in flight.
+    let mut in_flight = stream::iter(jobs.into_iter().map(|(gist, prior)| async move {
+        let action = classify(gist, prior.as_ref(), opts.force);
+        let outcome = process_gist(source, &opts.output, gist, prior.as_ref(), opts.dry_run).await;
+        (gist, action, outcome)
+    }))
+    .buffer_unordered(opts.concurrency.max(1));
+
+    while let Some((gist, action, outcome)) = in_flight.next().await {
         match outcome {
             Ok((record, written)) => {
                 summary.files_written += written;
