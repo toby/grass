@@ -33,10 +33,6 @@ async fn main() -> Result<()> {
         force: cli.force,
     };
 
-    if !cli.quiet {
-        print_header(&opts.output, cli.dry_run);
-    }
-
     let reporter = BarReporter::new(&cli);
     let summary = sync::run(&client, &opts, &reporter).await?;
     reporter.finish();
@@ -68,13 +64,13 @@ impl BarReporter {
             let b = ProgressBar::new(0);
             b.set_style(
                 ProgressStyle::with_template(
-                    "{spinner:.green.bold} {prefix} │{bar:26.green/dim}│ {percent:>3}% ({pos}/{len}) {msg:.dim}",
+                    "{spinner:.green.bold} {prefix} │{bar:24.green/dim}│ {percent:>3}% {pos}/{len} {msg}",
                 )
                 .unwrap()
                 .progress_chars("█▉▊▋▌▍▎▏─")
                 .tick_chars("⣾⣽⣻⢿⡿⣟⣯⣷ "),
             );
-            b.set_prefix("🌱 grass");
+            b.set_prefix(bar_prefix(&cli.output, cli.dry_run));
             b.enable_steady_tick(Duration::from_millis(90));
             b
         };
@@ -100,13 +96,13 @@ impl Reporter for BarReporter {
             };
             self.bar.println(format!("  {verb:>7}  {label}"));
         }
-        let icon = match action {
-            Action::Create => "✚",
-            Action::Update => "↻",
-            Action::Skip => "·",
-        };
         let short: String = label.chars().take(28).collect();
-        self.bar.set_message(format!("{icon} {short}"));
+        let msg = match action {
+            Action::Create => style(format!("✚ {short}")).green(),
+            Action::Update => style(format!("↻ {short}")).yellow(),
+            Action::Skip => style(format!("· {short}")).dim(),
+        };
+        self.bar.set_message(msg.for_stderr().to_string());
         self.bar.inc(1);
     }
 
@@ -125,26 +121,18 @@ fn gist_label(gist: &Gist) -> String {
     }
 }
 
-/// Print a stylish banner announcing where gists are being synced.
-fn print_header(output: &Path, dry_run: bool) {
-    let seedling = Emoji("🌱 ", "");
-    eprintln!();
-    eprintln!(
-        "{seedling}{}  {}",
-        style("grass").green().bold().for_stderr(),
-        style("sprouting your gists").dim().italic().for_stderr(),
-    );
-    let arrow = style("→").green().bold().for_stderr();
-    let path = style(output.display()).cyan().underlined().for_stderr();
+/// Build the styled prefix shown at the start of the progress bar line: the
+/// tool mark, an arrow, and the destination directory (with a dry-run hint).
+fn bar_prefix(output: &Path, dry_run: bool) -> String {
+    let mark = style("grass").green().bold().for_stderr();
+    let arrow = style("→").dim().for_stderr();
+    let dest = style(output.display()).cyan().for_stderr();
+    let mut prefix = format!("🌱 {mark} {arrow} {dest}");
     if dry_run {
-        eprintln!(
-            "   {arrow} {path}  {}",
-            style(" dry run ").black().on_yellow().bold().for_stderr(),
-        );
-    } else {
-        eprintln!("   {arrow} {path}");
+        let hint = style("(dry run)").yellow().for_stderr();
+        prefix.push_str(&format!(" {hint}"));
     }
-    eprintln!();
+    prefix
 }
 
 /// Print a one-line summary of the run to stdout.
