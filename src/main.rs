@@ -61,10 +61,12 @@ impl BarReporter {
         let bar = if cli.quiet {
             ProgressBar::hidden()
         } else {
-            let b = ProgressBar::new(0);
-            // Until we know how many gists there are, show a plain spinner with
-            // no bar/percent — otherwise an unknown length renders as 100%.
-            b.set_style(spinner_style());
+            // Start with an unknown length so the bar renders at 0% while the
+            // gist list is still loading. indicatif treats an explicit length
+            // of 0 as 100%, but an unknown (None) length as 0%; set_total fills
+            // in the real count once it's known.
+            let b = ProgressBar::no_length();
+            b.set_style(bar_style());
             b.set_prefix(bar_prefix(&cli.output, cli.dry_run));
             b.enable_steady_tick(Duration::from_millis(90));
             b
@@ -78,9 +80,9 @@ impl BarReporter {
 
 impl Reporter for BarReporter {
     fn set_total(&self, total: usize) {
-        // Now that the count is known, switch from the spinner to the real bar.
+        // Fill in the real count now that it's known; the bar style is already
+        // set in `new`, and the bar has been showing 0% until this point.
         self.bar.set_length(total as u64);
-        self.bar.set_style(bar_style());
     }
 
     fn gist_done(&self, action: Action, gist: &Gist) {
@@ -132,14 +134,7 @@ fn bar_prefix(output: &Path, dry_run: bool) -> String {
     prefix
 }
 
-/// Indeterminate style shown while the gist list is still being fetched.
-fn spinner_style() -> ProgressStyle {
-    ProgressStyle::with_template("{spinner:.green.bold} {prefix}")
-        .unwrap()
-        .tick_chars("⣾⣽⣻⢿⡿⣟⣯⣷ ")
-}
-
-/// Full progress-bar style used once the total gist count is known.
+/// Full progress-bar style used for the whole run.
 fn bar_style() -> ProgressStyle {
     ProgressStyle::with_template(
         "{spinner:.green.bold} {prefix} │{bar:24.green/dim}│ {percent:>3}% {pos}/{len} {msg}",
