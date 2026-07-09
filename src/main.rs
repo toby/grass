@@ -12,8 +12,10 @@ use anyhow::Result;
 use clap::Parser;
 use cli::Cli;
 use client::GitHubClient;
+use console::{style, Emoji};
 use indicatif::{ProgressBar, ProgressStyle};
 use model::Gist;
+use std::path::Path;
 use std::time::Duration;
 use sync::{Action, Reporter, Summary, SyncOptions};
 
@@ -32,8 +34,7 @@ async fn main() -> Result<()> {
     };
 
     if !cli.quiet {
-        let mode = if cli.dry_run { " (dry run)" } else { "" };
-        eprintln!("grass: syncing gists to {}{}", opts.output.display(), mode);
+        print_header(&opts.output, cli.dry_run);
     }
 
     let reporter = BarReporter::new(&cli);
@@ -124,24 +125,60 @@ fn gist_label(gist: &Gist) -> String {
     }
 }
 
+/// Print a stylish banner announcing where gists are being synced.
+fn print_header(output: &Path, dry_run: bool) {
+    let seedling = Emoji("🌱 ", "");
+    eprintln!();
+    eprintln!(
+        "{seedling}{}  {}",
+        style("grass").green().bold().for_stderr(),
+        style("sprouting your gists").dim().italic().for_stderr(),
+    );
+    let arrow = style("→").green().bold().for_stderr();
+    let path = style(output.display()).cyan().underlined().for_stderr();
+    if dry_run {
+        eprintln!(
+            "   {arrow} {path}  {}",
+            style(" dry run ").black().on_yellow().bold().for_stderr(),
+        );
+    } else {
+        eprintln!("   {arrow} {path}");
+    }
+    eprintln!();
+}
+
 /// Print a one-line summary of the run to stdout.
 fn print_summary(s: &Summary, dry_run: bool) {
     let mut parts = vec![
-        format!("{} new", s.created),
-        format!("{} updated", s.updated),
-        format!("{} unchanged", s.skipped),
+        style(format!("{} new", s.created))
+            .green()
+            .bold()
+            .to_string(),
+        style(format!("{} updated", s.updated))
+            .yellow()
+            .bold()
+            .to_string(),
+        style(format!("{} unchanged", s.skipped)).dim().to_string(),
     ];
     if s.pruned > 0 {
-        parts.push(format!("{} pruned", s.pruned));
+        parts.push(
+            style(format!("{} pruned", s.pruned))
+                .magenta()
+                .bold()
+                .to_string(),
+        );
     }
     if !s.errors.is_empty() {
-        parts.push(format!("{} errors", s.errors.len()));
+        parts.push(
+            style(format!("{} errors", s.errors.len()))
+                .red()
+                .bold()
+                .to_string(),
+        );
     }
+    let sparkle = Emoji("✨ ", "");
     let verb = if dry_run { "planned" } else { "written" };
-    println!(
-        "grass: {} ({} files {})",
-        parts.join(", "),
-        s.files_written,
-        verb
-    );
+    let files = style(format!("({} files {})", s.files_written, verb)).dim();
+    let sep = style(" · ").dim().to_string();
+    println!("{sparkle}{}  {files}", parts.join(&sep));
 }
