@@ -1,6 +1,6 @@
 //! Command-line interface definition.
 
-use clap::Parser;
+use clap::{Args, Parser, Subcommand};
 use std::path::PathBuf;
 
 /// Download and sync all of your GitHub gists to a local directory.
@@ -10,8 +10,11 @@ use std::path::PathBuf;
 #[derive(Debug, Parser)]
 #[command(name = "grass", version, about, long_about = None)]
 pub struct Cli {
-    /// Directory to store gists in (created if missing).
-    #[arg(short, long, default_value = "./gists")]
+    #[command(subcommand)]
+    pub command: Option<Command>,
+
+    /// Directory gists are stored in (created by sync if missing).
+    #[arg(short, long, default_value = "./gists", global = true)]
     pub output: PathBuf,
 
     /// GitHub token. Overrides the GITHUB_TOKEN/GH_TOKEN env vars and the
@@ -42,4 +45,31 @@ pub struct Cli {
     /// Suppress all output except errors.
     #[arg(short, long, conflicts_with = "verbose")]
     pub quiet: bool,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum Command {
+    /// Search the contents of your downloaded gists.
+    ///
+    /// Uses ripgrep (`rg`) if it's installed, otherwise `grep`.
+    Search(SearchArgs),
+}
+
+#[derive(Debug, Args)]
+pub struct SearchArgs {
+    /// Pattern to search for: a regular expression, or a literal string with
+    /// --fixed-strings.
+    pub pattern: String,
+
+    /// Match case-insensitively.
+    #[arg(short, long)]
+    pub ignore_case: bool,
+
+    /// Treat the pattern as a literal string instead of a regex.
+    #[arg(short = 'F', long)]
+    pub fixed_strings: bool,
+
+    /// Only match whole words.
+    #[arg(short, long)]
+    pub word: bool,
 }

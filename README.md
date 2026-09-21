@@ -14,6 +14,8 @@ remotely — unchanged gists are left untouched.
 - Concurrent downloads with a progress bar.
 - `--prune` to remove local copies of gists deleted on GitHub.
 - `--dry-run` to preview changes without writing anything.
+- `grass search` to grep through everything you've downloaded, with results
+  grouped by gist and linked back to GitHub.
 - No `git` required — files are fetched via the GitHub API.
 
 ## Install
@@ -77,6 +79,31 @@ grass --verbose
 | `--concurrency <N>` | Max gists downloaded concurrently (1–64) | `8` |
 | `-v, --verbose` | Print per-gist actions | off |
 | `-q, --quiet` | Suppress all output except errors | off |
+
+## Search
+
+`grass search <PATTERN>` searches the contents of every downloaded gist. It
+uses [ripgrep](https://github.com/BurntSushi/ripgrep) (`rg`) if it's installed
+and falls back to `grep` otherwise. Matches are grouped by gist, with its
+description, URL and each matching file, and every match is highlighted.
+
+```sh
+# Regex search (ripgrep syntax, or extended regex with grep)
+grass search 'fn \w+_test'
+
+# Literal, case-insensitive search in a custom directory
+grass search -F -i 'TODO(' --output ~/gists
+```
+
+| Flag | Description |
+| --- | --- |
+| `-i, --ignore-case` | Match case-insensitively |
+| `-F, --fixed-strings` | Treat the pattern as a literal string |
+| `-w, --word` | Only match whole words |
+| `-o, --output <DIR>` | Directory to search (default `./gists`) |
+
+Dotfile gists (like `.bashrc`) are searched too; `grass`'s own metadata files
+are not. Like `grep`, `grass search` exits with status 1 when nothing matches.
 
 ## Storage layout
 
